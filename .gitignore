@@ -1,3 +1,7 @@
 /.apt_generated/
 *.settings/
 *target/
+
+sh.exe.stackdump
+*.project*
+*.classpath*
