@@ -1,44 +1,78 @@
 package preco;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class Principal {
+import org.apache.commons.io.FileUtils;
 
-	private static final String QUEBRA_LINHA = "\n";
-	private static final String UTF8 = "UTF-8";
-	private static final String ESPACO_ENCODE = "\u00A0";
-	private static final String ESPACO = " ";
+public class Principal {
 	
-	private static final String REGEX_INPUT = "([a-z]|[A-Z]|\\d|\"|\'|:|,|:|@|#|\\$|%|\\(|\\)|\\[|\\]|\\{|\\}|\\||\\.| |=|\\/|\n|\\u00A0|!)*";
-	private static final String REGEX_MAX_LENGTH = "maxlength.*\"(.*)\"";
-	private static final String REGEX_PRECISION = "precision(.*)}";
-	private static final String REGEX_NG_MODEL = "\\[\\(ngModel\\)\\].*\"(.*)\"";
-	
-	private static final String DIRETORIO = "C:\\Dev\\Projetos\\TEMA\\workspace-pricing\\BPPricing\\pricing-web-ng\\pricing-web-ng-core\\src\\app\\componentes\\ativos\\titulo\\novo-titulo\\amortizacao\\AmortizacaoComponent.html";
 	private static BufferedReader reader;
 	
 	public static void main(String[] args) throws IOException {
-
-		FileReader file = new FileReader(DIRETORIO);
-		reader = new BufferedReader(file);
+		System.out.println("Iniciando substituição...");
+		List<String> arquivosModificados = new ArrayList<>();
 		
-		String data = montarArquivoHTML(reader);
-		System.out.println(data);
+		String diretorio = args[0];
 		
-		HashMap<String, Input> dadosColetados = coletarDadosPorRegex(data);
-		
-		for(HashMap.Entry<String, Input> input : dadosColetados.entrySet()) {
-		   System.out.println(String.format(getComponentePreco(), 
-				   							input.getValue().getMaxLength(), 
-				   							input.getValue().getPrecision(),
-				   							input.getValue().getNgModel()));
+		if(diretorio == null) {
+			throw new FileNotFoundException("É necessário informar um diretório.");
 		}
+		
+		Files.walk(Paths.get(diretorio))
+			.filter(file -> file.getFileName().toString().contains(Constantes.EXTENSAO_HTML))
+			.forEach(file -> {
+				
+				try {
+					FileReader fileReader = new FileReader(file.toString());
+					reader = new BufferedReader(fileReader);
+					
+					String pagina = montarArquivoHTML(reader);
+					HashMap<String, Input> dadosColetados = coletarDadosPorRegex(pagina);
+					
+					if(!dadosColetados.isEmpty()) {
+						System.out.println("");
+						System.out.println("Modificando arquivo " + file.getFileName());
+						arquivosModificados.add(file.getFileName().toString());
+						
+						for(HashMap.Entry<String, Input> input : dadosColetados.entrySet()) {
+							String novoComponente = String.format(getComponentePreco(), 
+																	input.getValue().getLabel(), 
+																	input.getValue().getMaxLength(), 
+																	input.getValue().getPrecision(),
+																	input.getValue().getNgModel());
+							
+							pagina = pagina.replaceFirst(Pattern.quote(input.getKey()), novoComponente);
+						}
+						
+						FileUtils.write(new File(file.toString()), pagina, Constantes.UTF8);
+						System.out.println(file.getFileName() + " OK");
+					}
+					
+				} catch (FileNotFoundException e) {
+					
+					System.out.println("Não foi possível acessar o diretório: " + file.toString());
+					e.printStackTrace();
+					
+				} catch (IOException e) {
+					
+					System.out.println("Falha ao fazer a leitura do aquivo: " + file.getFileName());
+					e.printStackTrace();
+				}
+		});
+		
+		exibirArquivosModificados(arquivosModificados);
 	}
 	
 	private static String montarArquivoHTML(BufferedReader reader) throws IOException {
@@ -47,15 +81,13 @@ public class Principal {
 
 		while ((line = reader.readLine()) != null) {
 			stringBuilder.append(line);
-			stringBuilder.append(QUEBRA_LINHA);
+			stringBuilder.append(Constantes.QUEBRA_LINHA);
 		}
-		
-		return converterEspacosEmBranco(stringBuilder);
+		return converterEspacosEmBranco(stringBuilder.toString(), Constantes.ESPACO_ENCODE, Constantes.ESPACO);
 	}
 	
 	
 	private static HashMap<String, Input> coletarDadosPorRegex(String texto) {
-		
 		Pattern PATTERN = Pattern.compile(obterRegexInput());
         Matcher matcher = PATTERN.matcher(texto);
         HashMap<String, Input> dadosColetados = new HashMap<String, Input>();
@@ -63,50 +95,74 @@ public class Principal {
         while(matcher.find()){
         	dadosColetados.put(matcher.group(1), extraiDadosInput(matcher.group(1)));
         }  
-        
         return dadosColetados;
     }
 	
 	private static Input extraiDadosInput(String inputString) {
 		Input input = new Input();
 		
-		Pattern PATTERN = Pattern.compile(REGEX_MAX_LENGTH);
+		Pattern PATTERN = Pattern.compile(Constantes.REGEX_MAX_LENGTH);
 		Matcher matcher = PATTERN.matcher(inputString);
-		input.setMaxLength(matcher.find() ? matcher.group(1).replaceAll(ESPACO_ENCODE, "") : "");
+		input.setMaxLength(matcher.find() ? matcher.group(1)
+							.replaceAll(Constantes.ESPACO_ENCODE, Constantes.VAZIO) : Constantes.VAZIO);
 
-		PATTERN = Pattern.compile(REGEX_NG_MODEL);
+		PATTERN = Pattern.compile(Constantes.REGEX_NG_MODEL);
 		matcher = PATTERN.matcher(inputString);
-		input.setNgModel(matcher.find() ? matcher.group(1).replaceAll(ESPACO_ENCODE, "") : "");
+		input.setNgModel(matcher.find() ? matcher.group(1)
+							.replaceAll(Constantes.ESPACO_ENCODE, Constantes.VAZIO) : Constantes.VAZIO);
 		
-		PATTERN = Pattern.compile(REGEX_PRECISION);
+		PATTERN = Pattern.compile(Constantes.REGEX_PRECISION);
 		matcher = PATTERN.matcher(inputString);
-		input.setPrecision(matcher.find() ? matcher.group(1).replaceAll(":", "").replaceAll(ESPACO_ENCODE, "") : "");
+		input.setPrecision(matcher.find() ? matcher.group(1)
+							.replaceAll(Constantes.DOIS_PONSTOS, Constantes.VAZIO)
+							.replaceAll(Constantes.ESPACO_ENCODE, Constantes.VAZIO) : Constantes.VAZIO);
+		
+		PATTERN = Pattern.compile(Constantes.REGEX_LABEL);
+		matcher = PATTERN.matcher(inputString);
+		input.setLabel(matcher.find() ? matcher.group(1) : Constantes.VAZIO);
 		
 		return input;
 	}
 	
 	private static String obterRegexInput() {
 		return new StringBuilder()
-					.append("(<input")
-					.append(REGEX_INPUT)
+					.append("(<core-label")
+					.append(Constantes.REGEX_INPUT)
+					.append("<input")
+					.append(Constantes.REGEX_INPUT)
 					.append("currencyMask")
-					.append(REGEX_INPUT)
-					.append(">)")
+					.append(Constantes.REGEX_INPUT)
+					.append("</core-label>)")
 					.toString();
 	}
 	
-	private static String converterEspacosEmBranco(StringBuilder stringBuilder) throws UnsupportedEncodingException {
-		return new String(stringBuilder.toString().getBytes() , UTF8).replaceAll(ESPACO, ESPACO_ENCODE);
+	private static String converterEspacosEmBranco(String dado, String valor, String novoValor) throws UnsupportedEncodingException {
+		return new String(dado.toString().getBytes() , Constantes.UTF8).replaceAll(valor, novoValor);
 	}
 	
 	private static String getComponentePreco(){
 		return new StringBuilder()
 					.append("<app-core-preco #corePreco") 
+					.append("	label=\"%s\"") 
 					.append("	maxCharacter=\"%s\"") 
 					.append("	maxDecimal=\"%s\"")
 					.append("	[valorNumerico]=\"%s\">")
 					.append("</app-core-preco>")
-					.toString();
+					.toString();		
+	}
+	
+	private static void exibirArquivosModificados(List<String> arquivos) {
+		if(!arquivos.isEmpty()) {
+			System.out.println("");
+			System.out.println("===== Arquivos Modificados =====");
+			arquivos.forEach(a -> {
+				System.out.println(a);
+			});
+			System.out.println("================================");
+		}else {
+			System.out.println("Não foi encontrado nenhum arquivo para substituição");
+		}
+		System.out.println("Substituição finalizada.");
 	}
 
 }
