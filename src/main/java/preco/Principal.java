@@ -46,15 +46,7 @@ public class Principal {
 						System.out.println("Modificando arquivo " + file.getFileName());
 						arquivosModificados.add(file.getFileName().toString());
 						
-						for(HashMap.Entry<String, Input> input : dadosColetados.entrySet()) {
-							String novoComponente = String.format(getComponentePreco(), 
-																	input.getValue().getLabel(), 
-																	input.getValue().getMaxLength(), 
-																	input.getValue().getPrecision(),
-																	input.getValue().getNgModel());
-							
-							pagina = pagina.replaceFirst(Pattern.quote(input.getKey()), novoComponente);
-						}
+						pagina = substituirDadosArquivo(pagina, dadosColetados);
 						
 						FileUtils.write(new File(file.toString()), pagina, Constantes.UTF8);
 						System.out.println(file.getFileName() + " OK");
@@ -73,6 +65,24 @@ public class Principal {
 		});
 		
 		exibirArquivosModificados(arquivosModificados);
+	}
+
+	private static String substituirDadosArquivo(String pagina, HashMap<String, Input> dadosColetados) {
+		for(HashMap.Entry<String, Input> input : dadosColetados.entrySet()) {
+			String novoComponente = criarAppCorePreco(input);
+			
+			pagina = pagina.replaceFirst(Pattern.quote(input.getKey()), novoComponente);
+		}
+		return pagina;
+	}
+
+	private static String criarAppCorePreco(HashMap.Entry<String, Input> input) {
+		return String.format(getComponentePreco(), 
+								input.getValue().getLabel().trim(), 
+								input.getValue().getMaxLength().trim(), 
+								input.getValue().getPrecision().trim(),
+								input.getValue().getMaxInteger().trim(),
+								input.getValue().getNgModel().trim());
 	}
 	
 	private static String montarArquivoHTML(BufferedReader reader) throws IOException {
@@ -146,6 +156,7 @@ public class Principal {
 					.append("	label=\"%s\"") 
 					.append("	maxCharacter=\"%s\"") 
 					.append("	maxDecimal=\"%s\"")
+					.append("	maxInteger=\"%s\"")
 					.append("	[valorNumerico]=\"%s\">")
 					.append("</app-core-preco>")
 					.toString();		
