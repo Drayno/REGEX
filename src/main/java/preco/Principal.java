@@ -24,7 +24,7 @@ public class Principal {
 		System.out.println("Iniciando substituição...");
 		List<String> arquivosModificados = new ArrayList<>();
 		
-		String diretorio = args[0];
+		String diretorio = args.length > 0 ? args[0] : null;
 		
 		if(diretorio == null) {
 			throw new FileNotFoundException("É necessário informar um diretório.");
