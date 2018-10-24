@@ -42,7 +42,7 @@ public class Input {
 
 	public String getMaxInteger() {
 		if(!this.maxLength.equals(Constantes.VAZIO) && !this.precision.equals(Constantes.VAZIO)) {
-			maxInteger = String.valueOf(Integer.parseInt(this.maxLength.trim()) - Integer.parseInt(this.precision.trim()));
+			maxInteger = String.valueOf((Integer.parseInt(this.maxLength.trim()) - Integer.parseInt(this.precision.trim()) - 1));
 		}
 		return maxInteger;
 	}
